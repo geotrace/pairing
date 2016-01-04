@@ -31,6 +31,3 @@ const (
 	// цифры и буквы
 	DictAlfa = DictNumber + "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
-
-// словарь по умолчанию
-var DictDefault = DictNumber
