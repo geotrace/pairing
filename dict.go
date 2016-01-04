@@ -25,8 +25,12 @@ func (d Dictionary) Generate(length int) string {
 }
 
 // Предопределенные словари для генерации уникальных кодов активации.
-var (
-	DictNumber  Dictionary = "0123456789"                              // только цифры
-	DictAlfa               = DictNumber + "ABCDEFGHIJKLMNOPQRSTUVWXYZ" // цифры и буквы
-	DictDefault            = DictNumber                                // словарь по умолчанию
+const (
+	// только цифры
+	DictNumber Dictionary = "0123456789"
+	// цифры и буквы
+	DictAlfa = DictNumber + "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
+
+// словарь по умолчанию
+var DictDefault = DictNumber
