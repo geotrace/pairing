@@ -16,7 +16,7 @@ func init() {
 type Dictionary string
 
 // Generate возвращает случайный набор символов из словаря заданной длинны.
-func (d Dictionary) Generate(length int) string {
+func (d Dictionary) Generate(length uint8) string {
 	response := make([]byte, length)
 	for i := range response {
 		response[i] = d[rand.Intn(len(d))] // заполняем случайным набором из словаря

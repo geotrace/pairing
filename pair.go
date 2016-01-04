@@ -5,13 +5,6 @@ import (
 	"time"
 )
 
-// Параметры генерации ключей.
-var (
-	KeyLength    = 4                // длина ключа
-	KeyExpired   = time.Minute * 30 // время жизни ключа
-	MaxIterCount = 1000             // максимальное количество попыток
-)
-
 const initialCount = 100 // изначально выделяем память для хранения стольких одновременных ключей
 
 // keyInfo содержит информацию об устройстве и времени генерации ключа.
@@ -24,6 +17,9 @@ type keyInfo struct {
 // Pairs описывает список ключей для спаривания устройств.
 type Pairs struct {
 	Dictionary                     // словарь букв ключа для генерации
+	Length     uint8               // длина ключа
+	Expire     time.Duration       // время жизни ключа
+	MaxIter    uint16              // максимальное количество итераций
 	devices    map[string]*keyInfo // справочник ключей для устройств
 	keys       map[string]*keyInfo // справочник устройств по сгенерированным ключам
 	mu         sync.Mutex
@@ -38,6 +34,10 @@ type Pairs struct {
 //
 // Параллельное выполнение нескольких функций генерации блокируется. Но, т.к. это достаточно
 // быстрый процесс, то обычно это никак не сказывается на производительности.
+//
+// Если при создании класса длина, срок жизни и количество итераций не были указаны, то они
+// автоматически примут значения по умолчанию при первом обращении к этой функции: длина — 6,
+// время жизни — 30 минут, а количество итераций — 1000.
 func (p *Pairs) Generate(deviceID string) (key string) {
 	p.mu.Lock() // одновременно выполняется только одна копия
 	// инициализируем списки ключей и словарь, если они не были инициализированы до этого
@@ -50,6 +50,15 @@ func (p *Pairs) Generate(deviceID string) (key string) {
 	if len(p.Dictionary) == 0 {
 		p.Dictionary = DictDefault // инициализируем словарь, если он не инициализирован
 	}
+	if p.Length == 0 {
+		p.Length = 6
+	}
+	if p.Expire == 0 {
+		p.Expire = time.Minute * 30
+	}
+	if p.MaxIter == 0 {
+		p.MaxIter = 1000
+	}
 	// проверяем, что для данного устройства нет сгенерированного ключа
 	if kInfo, ok := p.devices[deviceID]; ok {
 		delete(p.keys, kInfo.Key) // удаляем ключ из списка
@@ -57,11 +66,11 @@ func (p *Pairs) Generate(deviceID string) (key string) {
 		// log.Printf("Delete key for %q", deviceID)
 	}
 	// делаем несколько попыток генерации нового уникального ключа
-	for i := 0; i < MaxIterCount; i++ {
-		key = p.Dictionary.Generate(KeyLength) // генерируем случайный ключ по словарю
+	for i := 0; i < int(p.MaxIter); i++ {
+		key = p.Dictionary.Generate(p.Length) // генерируем случайный ключ по словарю
 		// проверяем, что этот ключ сейчас не используется
 		if kInfo, ok := p.keys[key]; ok {
-			if time.Since(kInfo.Time) < KeyExpired {
+			if time.Since(kInfo.Time) < p.Expire {
 				continue // время жизни ключа еще не истекло — пробуем дальше
 			}
 			// ключ используется, но устарел — удаляем записи о нем
@@ -93,7 +102,7 @@ func (p *Pairs) GetDeviceID(key string) (deviceID string) {
 	if kInfo, ok := p.keys[key]; ok {
 		delete(p.keys, kInfo.Key)
 		delete(p.devices, kInfo.DeviceID)
-		if time.Since(kInfo.Time) < KeyExpired {
+		if time.Since(kInfo.Time) < p.Expire {
 			deviceID = kInfo.DeviceID
 		}
 	}
